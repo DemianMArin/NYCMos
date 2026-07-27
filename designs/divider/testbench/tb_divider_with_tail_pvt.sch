@@ -10,6 +10,7 @@ T {200 MHz CLK - Disable when not in use
  } 50 1370 0 0 0.4 0.4 {}
 T {1 MHz CLK - Disable when not in use} 2040 1420 0 0 0.4 0.4 {}
 T {100 MHz CLK - Disable when not in use} 3790 1440 0 0 0.4 0.4 {}
+T {Frequency Sweep - Disable when not in use} -10 3000 0 0 0.4 0.4 {}
 N 10 -340 10 -290 {lab=0}
 N 550 -300 550 -170 {lab=0}
 N 550 -480 550 -460 {lab=VDD}
@@ -64,18 +65,30 @@ spice_ignore=true}
 N 2710 1480 2710 1510 {lab=0
 spice_ignore=true}
 N 4360 1460 4360 1500 {lab=V_LO_REF_unbuffered
-}
+spice_ignore=true}
 N 4360 1460 4410 1460 {lab=V_LO_REF_unbuffered
-}
+spice_ignore=true}
 N 4360 1560 4360 1600 {lab=0
-}
+spice_ignore=true}
 N 4510 1460 4550 1460 {lab=V_LO_REF
-}
+spice_ignore=true}
 N 4460 1380 4460 1420 {lab=VDD
-}
+spice_ignore=true}
 N 4460 1500 4460 1530 {lab=0
-}
+spice_ignore=true}
 N 350 -370 350 -360 {lab=#net1}
+N 560 3020 560 3060 {lab=V_LO_REF_unbuffered
+}
+N 560 3020 610 3020 {lab=V_LO_REF_unbuffered
+}
+N 560 3120 560 3160 {lab=0
+}
+N 710 3020 750 3020 {lab=V_LO_REF
+}
+N 660 2940 660 2980 {lab=VDD
+}
+N 660 3060 660 3090 {lab=0
+}
 C {title.sym} 160 -30 0 0 {name=LO Divider author="Lei Chen"}
 C {code_shown.sym} -10 1680 0 0 {name="200 MHz CLK" only_toplevel=false value="
 ** PARAMS 
@@ -423,18 +436,89 @@ print (maximum(V_LOQ_MAG)/maximum(V_LOI_MAG)-1)*100
 
 .endc
 "
-}
+spice_ignore=true}
 C {lab_wire.sym} 4530 1460 0 1 {name=p21 sig_type=std_logic lab=V_LO_REF
-}
+spice_ignore=true}
 C {vsource.sym} 4360 1530 0 0 {name=V_LO_REF3 value="DC 0 pulse(0 3.3 0 .1n .1n 50n 100n)" savecurrent=false
-}
+spice_ignore=true}
 C {lab_wire.sym} 4360 1600 0 0 {name=p22 sig_type=std_logic lab=0
-}
+spice_ignore=true}
 C {simulation_parasitics/schematics/digital_input_buffer.sym} 4460 1460 0 0 {name=x3
-}
+spice_ignore=true}
 C {lab_wire.sym} 4460 1400 0 1 {name=p23 sig_type=std_logic lab=VDD
-}
+spice_ignore=true}
 C {lab_wire.sym} 4460 1530 0 0 {name=p24 sig_type=std_logic lab=0
-}
+spice_ignore=true}
 C {lab_wire.sym} 4390 1460 0 0 {name=p25 sig_type=std_logic lab=V_LO_REF_unbuffered
+spice_ignore=true}
+C {code_shown.sym} 0 3240 0 0 {name=2 only_toplevel=false value="
+** PARAMS 
+
+.PARAM PAR_VDD=3.3
+.PARAM PAR_PERIOD = 1
+
+.control
+destroy all
+
+write tb_divider_with_tail_pvt.raw
+
+compose clk_frequency lin=10 start=1MEG stop=100MEG ;output frequency we want
+let CLK_FREQUENCY = CLK_FREQUENCY*2 ; convert to input frequency
+let CLK_PERIOD = 1/CLK_FREQUENCY ; convert to period
+echo $&CLK_FREQUENCY
+foreach period $&CLK_PERIOD
+	echo ---------------------------------------------
+	echo $period ; print period
+	let tran_step = $period/10 ; set transient step to 0.1 of clock period
+	let tran_stop = $period*200 ; 200 cycles
+	let trig_delay = $period*44.25 ; trigger after 44.9 cycles so that I/Q are both rising
+
+	print tran_step
+	print tran_stop
+	print trig_delay
+	alterparam PAR_period = $period
+	reset
+	save all
+
+	tran $&tran_step $&tran_stop
+	linearize
+	let V_LOI = v_loi_p - v_loi_m
+	let V_LOQ = v_loq_p - v_loq_m
+	
+	
+	meas tran t_diff TRIG v(V_LOI) VAL=0 TD=$&trig_delay RISE=1 TARG v(V_LOQ) VAL=0 TD=$&trig_delay RISE=1 ; time difference between first rising 0 crossing of V_LOI and first rising 0 cross of V_LOQ after 10ns
+	
+	fft v(V_LOI) v(v_loq)
+
+	let V_LOI_MAG = mag(V_LOI)
+	let V_LOQ_MAG = mag(V_LOQ)
+	let V_LOI_MAX = maximum(V_LOI_MAG)-0.001; subtract small amount so that meas can find it
+	meas sp f_har_1 WHEN v(V_LOI_MAG)=V_LOI_MAX; measure first harmonic frequency by measuring frequency of the largest voltage component
+	
+	;calculate phase error with transient data
+	let phase_diff_transient = tran1.t_diff * f_har_1 * 360; phase difference = t_diff/t_period = t_diff * f * 360 deg/1
+	
+	echo 'Phase Error with Transient (deg)' 
+	print phase_diff_transient-90
+	echo 'I/Q Amplitude Error (%)'
+	print (maximum(V_LOQ_MAG)/maximum(V_LOI_MAG)-1)*100
+
+
+end
+.endc
+"
+}
+C {lab_wire.sym} 730 3020 0 1 {name=p11 sig_type=std_logic lab=V_LO_REF
+}
+C {vsource.sym} 560 3090 0 0 {name=V_LO_REF4 value="DC 0 pulse(0 3.3 0 '.01*PAR_PERIOD' '.01*PAR_PERIOD' 'PAR_PERIOD/2' 'PAR_PERIOD')" savecurrent=false
+}
+C {lab_wire.sym} 560 3160 0 0 {name=p26 sig_type=std_logic lab=0
+}
+C {simulation_parasitics/schematics/digital_input_buffer.sym} 660 3020 0 0 {name=x4
+}
+C {lab_wire.sym} 660 2960 0 1 {name=p27 sig_type=std_logic lab=VDD
+}
+C {lab_wire.sym} 660 3090 0 0 {name=p28 sig_type=std_logic lab=0
+}
+C {lab_wire.sym} 590 3020 0 0 {name=p29 sig_type=std_logic lab=V_LO_REF_unbuffered
 }
