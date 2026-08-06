@@ -390,7 +390,7 @@ print v(V_LOI_p) v(V_LOI_n)
 
 
 ;transient analysis
-tran .01n 5u
+tran .833n 400n
  
 let V_LOI = v_loi_p - v_loi_m
 let V_LOQ = v_loq_p - v_loq_m
@@ -439,7 +439,7 @@ print (maximum(V_LOQ_MAG)/maximum(V_LOI_MAG)-1)*100
 spice_ignore=true}
 C {lab_wire.sym} 4530 1460 0 1 {name=p21 sig_type=std_logic lab=V_LO_REF
 spice_ignore=true}
-C {vsource.sym} 4360 1530 0 0 {name=V_LO_REF3 value="DC 0 pulse(0 3.3 0 .1n .1n 50n 100n)" savecurrent=false
+C {vsource.sym} 4360 1530 0 0 {name=V_LO_REF3 value="DC 0 pulse(0 3.3 0 .0833n .0833n 4.16n 8.33n)" savecurrent=false
 spice_ignore=true}
 C {lab_wire.sym} 4360 1600 0 0 {name=p22 sig_type=std_logic lab=0
 spice_ignore=true}
@@ -469,7 +469,7 @@ echo $&CLK_FREQUENCY
 foreach period $&CLK_PERIOD
 	echo ---------------------------------------------
 	echo $period ; print period
-	let tran_step = $period/10 ; set transient step to 0.1 of clock period
+	let tran_step = $period/100 ; set transient step to 0.1 of clock period
 	let tran_stop = $period*200 ; 200 cycles
 	let trig_delay = $period*44.25 ; trigger after 44.9 cycles so that I/Q are both rising
 
@@ -481,13 +481,13 @@ foreach period $&CLK_PERIOD
 	save all
 
 	tran $&tran_step $&tran_stop
-	linearize
+	
 	let V_LOI = v_loi_p - v_loi_m
 	let V_LOQ = v_loq_p - v_loq_m
 	
-	
 	meas tran t_diff TRIG v(V_LOI) VAL=0 TD=$&trig_delay RISE=1 TARG v(V_LOQ) VAL=0 TD=$&trig_delay RISE=1 ; time difference between first rising 0 crossing of V_LOI and first rising 0 cross of V_LOQ after 10ns
-	
+
+	linearize
 	fft v(V_LOI) v(v_loq)
 
 	let V_LOI_MAG = mag(V_LOI)
@@ -496,12 +496,12 @@ foreach period $&CLK_PERIOD
 	meas sp f_har_1 WHEN v(V_LOI_MAG)=V_LOI_MAX; measure first harmonic frequency by measuring frequency of the largest voltage component
 	
 	;calculate phase error with transient data
-	let phase_diff_transient = tran1.t_diff * f_har_1 * 360; phase difference = t_diff/t_period = t_diff * f * 360 deg/1
+	;let phase_diff_transient = tran1.t_diff * f_har_1 * 360; phase difference = t_diff/t_period = t_diff * f * 360 deg/1
 	
-	echo 'Phase Error with Transient (deg)' 
-	print phase_diff_transient-90
-	echo 'I/Q Amplitude Error (%)'
-	print (maximum(V_LOQ_MAG)/maximum(V_LOI_MAG)-1)*100
+	;echo 'Phase Error with Transient (deg)' 
+	;print phase_diff_transient-90
+	;echo 'I/Q Amplitude Error (%)'
+	;print (maximum(V_LOQ_MAG)/maximum(V_LOI_MAG)-1)*100
 
 
 end

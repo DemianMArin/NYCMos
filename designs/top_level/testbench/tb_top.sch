@@ -297,8 +297,7 @@ print i(v.x1.v_i_buf_mix_3_p)
 print i(v.x1.v_i_buf_mix_3_m)
 print i(v.x1.v_i_buf_mix_4_p)
 print i(v.x1.v_i_buf_mix_4_m)
-print i(v.x1.v_i_tx_gate_set_1)
-print i(v.x1.v_i_tx_gate_set_2)
+print i(v.x1.v_i_and_gates)
 
 echo 'OUTPUT DC Current'
 print i(v_i_IF_I_p)
